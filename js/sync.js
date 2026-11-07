@@ -52,9 +52,14 @@ async function mergeBackup(data){
     await store.write('sessions/' + s.id, s); n++;
   }
   const rts = data.planningTs || 0;
-  if (data.planning && rts > (lsGet('pds_planning_ts') || 0)){ planning = data.planning; await store.write('config/planning', { days:planning, ts:rts }); n++; }
+  if (data.planning && rts > planTs()){ planning = data.planning; await store.write('config/planning', { days:planning, ts:rts }); n++; }
   return n;
 }
+
+/* Date de la semaine type locale. Une semaine type réglée avant l'arrivée de la synchronisation n'a pas de date :
+   on lui donne 1, pour qu'elle passe devant la semaine type par défaut (0) d'un appareil qui ne l'a jamais modifiée,
+   sans passer devant une modification datée. */
+function planTs(){ return lsGet('pds_planning_ts') || (lsGet('pds_planning') ? 1 : 0); }
 
 let syncBusy = false, lastPull = 0;
 function syncState(txt, s){ document.querySelectorAll('.sync').forEach(x => { x.dataset.s = s; x.querySelector('.syncTxt').textContent = txt; }); }

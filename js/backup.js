@@ -3,7 +3,7 @@
 /* Contenu commun à la sauvegarde et à l'export. */
 function backupPayload(){
   flushSave();
-  return { app:'carnet-de-reprise', version:2, exported:new Date().toISOString(), planning, planningTs:lsGet('pds_planning_ts') || 0,
+  return { app:'carnet-de-reprise', version:2, exported:new Date().toISOString(), planning, planningTs:planTs(),
     sessions:sessions.filter(s => s.done || s.items.some(i => i.done || i.sets.some(hasVal))) };
 }
 function markBackedUp(name){

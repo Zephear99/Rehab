@@ -98,7 +98,7 @@ const store = {
   q: Promise.resolve(),
   write(path, body){
     // Date de la semaine type : sert à savoir quelle version garder lors de la synchronisation.
-    if (path === 'config/planning') lsSet('pds_planning_ts', body.ts || Date.now());
+    if (path === 'config/planning') lsSet('pds_planning_ts', body.ts != null ? body.ts : Date.now());
     if (!this.db){
       if (path === 'config/planning') lsSet('pds_planning', body);
       else { const all = lsGet('pds_sessions') || {}; all[body.id] = body; lsSet('pds_sessions', all); }
