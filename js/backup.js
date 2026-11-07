@@ -3,7 +3,7 @@
 /* Contenu commun à la sauvegarde et à l'export. */
 function backupPayload(){
   flushSave();
-  return { app:'carnet-de-reprise', version:2, exported:new Date().toISOString(), planning,
+  return { app:'carnet-de-reprise', version:2, exported:new Date().toISOString(), planning, planningTs:lsGet('pds_planning_ts') || 0,
     sessions:sessions.filter(s => s.done || s.items.some(i => i.done || i.sets.some(hasVal))) };
 }
 function markBackedUp(name){
@@ -33,6 +33,7 @@ let backupHandle = null;   // copie en mémoire, au cas où IndexedDB serait ind
    (Chrome peut redemander l'autorisation d'écrire, une fois par ouverture de l'app).
    Navigateur sans accès aux fichiers : on télécharge sous un nom fixe, sans pouvoir écraser. */
 async function saveBackup(pickNew){
+  if (!pickNew && typeof ghCfg === 'function' && ghCfg()){ await ghPush(); return; }
   const json = JSON.stringify(backupPayload(), null, 2);
   if (!canOverwrite){
     if (download(json, BACKUP_NAME)){ markBackedUp(); toast('Sauvegarde téléchargée'); }
@@ -109,8 +110,9 @@ function openMenu(){
   const g = el('div','stack'); g.style.marginTop = '14px';
   [['Thème', 'Clair, sombre, bleu nuit, rouge, noir rétro', () => { close(); openTheme(); }],
    ['Minuteur', 'Repos, chrono et signal sonore', () => { close(); openTimer(); }],
-   ['Sauvegarder', backupInfo() + (canOverwrite ? '. Remplace le fichier de sauvegarde.' : '. Ce navigateur ne peut pas remplacer un fichier : un nouveau est téléchargé.'), () => { close(); saveBackup(); }],
-   ...(canOverwrite && lsGet('pds_backupName') ? [['Changer de fichier de sauvegarde', 'Choisir un autre emplacement pour les prochaines sauvegardes', () => { close(); saveBackup(true); }]] : []),
+   ['Synchronisation GitHub', (lsGet('pds_github') || {}).repo ? 'Connecté à ' + lsGet('pds_github').repo : 'Sauvegarder dans un dépôt privé et retrouver les mêmes données sur tous tes appareils', () => { close(); openGithub(); }],
+   ['Sauvegarder', backupInfo() + ((lsGet('pds_github') || {}).repo ? '. Envoie sur GitHub.' : canOverwrite ? '. Remplace le fichier de sauvegarde.' : '. Ce navigateur ne peut pas remplacer un fichier : un nouveau est téléchargé.'), () => { close(); saveBackup(); }],
+   ...(canOverwrite && lsGet('pds_backupName') && !(lsGet('pds_github') || {}).repo ? [['Changer de fichier de sauvegarde', 'Choisir un autre emplacement pour les prochaines sauvegardes', () => { close(); saveBackup(true); }]] : []),
    ['Exporter une copie datée', 'Fichier JSON à part, le fichier de sauvegarde n’est pas modifié', () => { close(); exportData(); }],
    ['Importer une sauvegarde', 'Restaure un export JSON', () => { close(); importData(); }]].forEach(([t, m, fn]) => {
     const b = el('button','opt'); b.type = 'button'; b.style.cssText = 'width:100%;text-align:left;background:var(--surface);font:inherit;color:inherit;margin:0';

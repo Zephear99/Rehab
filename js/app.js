@@ -97,6 +97,8 @@ const store = {
   },
   q: Promise.resolve(),
   write(path, body){
+    // Date de la semaine type : sert à savoir quelle version garder lors de la synchronisation.
+    if (path === 'config/planning') lsSet('pds_planning_ts', body.ts || Date.now());
     if (!this.db){
       if (path === 'config/planning') lsSet('pds_planning', body);
       else { const all = lsGet('pds_sessions') || {}; all[body.id] = body; lsSet('pds_sessions', all); }
@@ -111,7 +113,7 @@ const store = {
 };
 function syncUI(e){
   const s = store.pending ? 'busy' : store.mode;
-  const txt = { pending:'Connexion…', cloud:'Synchronisé', busy:'Enregistrement…', local:'Sur cet appareil', err:(e && e.code === 'invalid_argument') ? 'Lecture seule' : 'Non enregistré' }[s];
+  const txt = { pending:'Connexion…', cloud:'Synchronisé', busy:'Enregistrement…', local:(typeof ghCfg === 'function' && ghCfg()) ? 'Synchro GitHub' : 'Sur cet appareil', err:(e && e.code === 'invalid_argument') ? 'Lecture seule' : 'Non enregistré' }[s];
   document.querySelectorAll('.sync').forEach(n => { n.dataset.s = s; n.querySelector('.syncTxt').textContent = txt; });
   document.querySelectorAll('[data-save-state]').forEach(n => { n.textContent = s === 'busy' ? 'Enregistrement…' : s === 'err' ? txt : 'Enregistré'; });
 }

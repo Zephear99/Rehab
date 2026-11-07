@@ -20,8 +20,10 @@ async function boot(){
   if (session && session.id === 's_' + iso(viewDate)) session = null;
   loadSession();
   RENDER[tab]();
+  ghPull(true);
   document.addEventListener('visibilitychange', async () => {
     if (document.hidden){ flushSave(); return; }
+    ghPull();
     if (document.activeElement && document.activeElement.closest('input,textarea')) return;
     if (store.pending) return;
     const before = JSON.stringify(session);
