@@ -120,5 +120,5 @@ function openMenu(){
   box.append(g);
   const foot = el('div','sheet-foot'); const b = el('button','btn','Fermer'); b.type = 'button'; b.onclick = close; foot.append(b); box.append(foot);
 }
-$('#sbSave').onclick = () => saveBackup(); $('#mSave').onclick = () => saveBackup(); $('#sbExport').onclick = exportData; $('#sbImport').onclick = importData; $('#sbTheme').onclick = openTheme;
+$('#sbSave').onclick = () => saveBackup(); $('#mSave').onclick = () => saveBackup(); $('#sbExport').onclick = exportData; $('#sbSync').onclick = () => openGithub(); $('#sbImport').onclick = importData; $('#sbTheme').onclick = openTheme;
 $('#mMenu').onclick = openMenu; $('#mTimer').onclick = openTimer;

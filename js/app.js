@@ -335,10 +335,10 @@ function renderSess(){
   nav.append(prev, tdy, next); ph.append(nav); r.append(ph);
 
   // Version installée, encore vide : on propose de reprendre l'historique exporté depuis claude.ai.
-  if (store.mode === 'local' && !sessions.length){
+  if (store.mode === 'local' && !sessions.length && !(typeof ghCfg === 'function' && ghCfg())){
     const b = el('div','banner info'); b.style.cssText = 'margin-bottom:14px;border:1px solid var(--line);padding:12px 14px;align-items:center;flex-wrap:wrap';
     b.innerHTML = svgI(ICON.info);
-    const t = el('span', null, 'Première ouverture sur cet appareil. Pour retrouver tes séances, exporte-les depuis l’app sur claude.ai puis importe le fichier ici.'); t.style.flex = '1 1 220px';
+    const t = el('span', null, 'Première ouverture sur cet appareil. Pour retrouver tes séances, connecte la synchronisation GitHub (menu Réglages) ou importe une sauvegarde.'); t.style.flex = '1 1 220px';
     const ib = el('button','btn sm','Importer une sauvegarde'); ib.type = 'button'; ib.onclick = importData;
     b.append(t, ib); r.append(b);
   }
