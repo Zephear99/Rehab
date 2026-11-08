@@ -4,7 +4,8 @@
 function backupPayload(){
   flushSave();
   return { app:'carnet-de-reprise', version:2, exported:new Date().toISOString(), planning, planningTs:planTs(),
-    sessions:sessions.filter(s => s.done || s.items.some(i => i.done || i.sets.some(hasVal))) };
+    // Toutes les séances enregistrées : une séance n'est enregistrée que si on l'a modifiée (note, douleur, programme du jour…).
+    sessions:sessions.filter(s => s && s.id && Array.isArray(s.items)) };
 }
 function markBackedUp(name){
   lsSet('pds_lastExport', Date.now()); if (name) lsSet('pds_backupName', name);

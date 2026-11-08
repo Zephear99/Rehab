@@ -38,21 +38,27 @@ async function ghRead(cfg){
   return { data, sha:meta.sha };
 }
 
-/* Fusionne une sauvegarde dans les données locales. Renvoie le nombre d'éléments mis à jour. */
-async function mergeBackup(data){
+/* Fusionne une sauvegarde dans les données locales. Renvoie le nombre d'éléments mis à jour.
+   opts.remoteWins : la version GitHub remplace celle de l'appareil, même si celle-ci est plus récente.
+   opts.adoptPlanning : prendre la semaine type distante si celle de l'appareil n'a jamais été modifiée depuis la synchro (première connexion). */
+async function mergeBackup(data, opts){
+  opts = opts || {};
   if (!data) return 0;
   flushSave();
   let n = 0;
   for (const s of (Array.isArray(data.sessions) ? data.sessions : [])){
     if (!s || !s.id || !s.date || !Array.isArray(s.items)) continue;
     const i = sessions.findIndex(x => x.id === s.id), cur = i >= 0 ? sessions[i] : null;
-    if (cur && (s.ts || 0) <= (cur.ts || 0)) continue;
+    if (cur && !opts.remoteWins && (s.ts || 0) <= (cur.ts || 0)) continue;
+    if (cur && opts.remoteWins && JSON.stringify(cur) === JSON.stringify(s)) continue;
     if (i >= 0) sessions[i] = s; else sessions.push(s);
     if (session && session.id === s.id) session = s;
     await store.write('sessions/' + s.id, s); n++;
   }
   const rts = data.planningTs || 0;
-  if (data.planning && rts > planTs()){ planning = data.planning; await store.write('config/planning', { days:planning, ts:rts }); n++; }
+  const take = data.planning && (rts > planTs() || opts.remoteWins || (opts.adoptPlanning && planTs() <= 1));
+  if (take && JSON.stringify(data.planning) !== JSON.stringify(planning)){ planning = data.planning; await store.write('config/planning', { days:planning, ts:Math.max(rts, 1) }); n++; }
+  else if (take) lsSet('pds_planning_ts', Math.max(rts, 1));
   return n;
 }
 
@@ -63,20 +69,26 @@ function planTs(){ return lsGet('pds_planning_ts') || (lsGet('pds_planning') ? 1
 
 let syncBusy = false, lastPull = 0;
 function syncState(txt, s){ document.querySelectorAll('.sync').forEach(x => { x.dataset.s = s; x.querySelector('.syncTxt').textContent = txt; }); }
+/* Toucher l'indicateur de synchro force la récupération de la dernière version. */
+document.addEventListener('click', e => { if (e.target.closest('.sync') && ghCfg()) ghPull(true); });
+/* Ordinateur : repasser sur la fenêtre de l'app ne déclenche pas toujours `visibilitychange`. */
+window.addEventListener('focus', () => ghPull());
 function deviceName(){ const m = navigator.userAgentData ? navigator.userAgentData.mobile : /Android|iPhone|iPad/i.test(navigator.userAgent); return m ? 'le téléphone' : 'l’ordinateur'; }
 
 /* Récupère la dernière version (ouverture de l'app, retour dans l'app). Silencieux sauf en cas de changement. */
-async function ghPull(force){
+async function ghPull(force, opts){
   const cfg = ghCfg(); if (!cfg || syncBusy) return;
-  if (!force && Date.now() - lastPull < 60000) return;
-  if (document.activeElement && document.activeElement.closest('input,textarea')) return;
+  // Petit délai anti-rafale seulement : revenir dans l'app doit suffire à voir la dernière version.
+  // La saisie en cours est enregistrée par mergeBackup (flushSave) avant la fusion, donc rien n'est perdu.
+  if (!force && Date.now() - lastPull < 2000) return;
   syncBusy = true; lastPull = Date.now();
   try {
     syncState('Synchronisation…', 'busy');
     const { data } = await ghRead(cfg);
-    const n = await mergeBackup(data);
+    const n = await mergeBackup(data, opts);
     lsSet('pds_github_ok', Date.now()); syncState('Synchronisé avec GitHub', 'cloud');
-    if (n){ if (!document.querySelector('.sheet')){ if (tab === 'sess') loadSession(); else RENDER[tab](); } toast('Données mises à jour depuis GitHub'); }
+    if (opts && opts.remoteWins) toast(n ? 'Cet appareil a repris la version GitHub (' + n + ' élément(s))' : 'Cet appareil était déjà identique à GitHub');
+    if (n){ if (!document.querySelector('.sheet')){ if (tab === 'sess') loadSession(); else RENDER[tab](); } if (!opts || !opts.remoteWins) toast('Données mises à jour depuis GitHub'); }
   } catch(e){ syncState(e.status === 0 ? 'Hors ligne' : 'Synchro en erreur', e.status === 0 ? 'local' : 'err'); if (e.status && e.status !== 0) toast(e.message); }
   finally { syncBusy = false; }
 }
@@ -87,13 +99,14 @@ async function ghPush(){
   if (syncBusy){ toast('Synchronisation déjà en cours…'); return true; }
   syncBusy = true; syncState('Envoi vers GitHub…', 'busy');
   try {
-    for (let attempt = 0; attempt < 2; attempt++){
+    for (let attempt = 0; attempt < 3; attempt++){
+      if (attempt) await new Promise(r => setTimeout(r, 1500 * attempt));   // GitHub met parfois quelques secondes à voir la version précédente
       const { data, sha } = await ghRead(cfg);
       await mergeBackup(data);
       const body = { message:'Sauvegarde depuis ' + deviceName() + ' · ' + new Date().toLocaleString('fr-FR'), content:b64encode(JSON.stringify(backupPayload(), null, 2)) };
       if (sha) body.sha = sha;
       try { await gh(cfg, repoPath(cfg) + '/contents/' + GH_FILE, { method:'PUT', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(body) }); }
-      catch(e){ if ((e.status === 409 || e.status === 422) && attempt === 0) continue; throw e; }
+      catch(e){ if ((e.status === 409 || e.status === 422) && attempt < 2) continue; throw e; }
       markBackedUp('GitHub · ' + cfg.repo); lsSet('pds_github_ok', Date.now()); lastPull = Date.now();
       syncState('Synchronisé avec GitHub', 'cloud'); toast('Sauvegardé sur GitHub'); if (!document.querySelector('.sheet')) RENDER[tab]();
       return true;
@@ -118,7 +131,31 @@ function openGithub(){
   field('Clé d’accès (fine-grained token)', tok, 'Ne la partage avec personne, pas même dans un chat.');
   const msg = el('p','vres'); box.append(msg);
   const say = (t, bad) => { msg.textContent = t; msg.className = 'vres' + (bad ? ' bad' : ''); };
-  if (cur.repo && cur.token) say('Connecté à ' + cur.repo + (lsGet('pds_github_ok') ? ' · dernière synchro réussie ' + new Date(lsGet('pds_github_ok')).toLocaleString('fr-FR') : '') + '.');
+  if (cur.repo && cur.token){
+    say('Connecté à ' + cur.repo + (lsGet('pds_github_ok') ? ' · dernière synchro réussie ' + new Date(lsGet('pds_github_ok')).toLocaleString('fr-FR') : '') + '.');
+    // Comparaison appareil / GitHub : permet de voir tout de suite s'il y a un écart, et de quel côté.
+    const cmp = el('div','card'); cmp.style.cssText = 'padding:12px 14px;margin:0 0 14px;font-size:13px;color:var(--ink-2);display:grid;gap:6px';
+    cmp.textContent = 'Comparaison avec GitHub…'; box.insertBefore(cmp, msg);
+    const fmt = t => t > 1 ? new Date(t).toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : 'jamais modifiée depuis la synchro';
+    ghRead(cur).then(({ data }) => {
+      cmp.innerHTML = '';
+      if (!data){ cmp.textContent = 'Rien sur GitHub pour l’instant : touche Sauvegarder.'; return; }
+      flushSave();
+      const remoteById = new Map((data.sessions || []).map(s => [s.id, s]));
+      const onlyHere = sessions.filter(s => !remoteById.has(s.id)).length, onlyThere = [...remoteById.keys()].filter(id => !sessions.some(s => s.id === id)).length;
+      const diff = sessions.filter(s => remoteById.has(s.id) && JSON.stringify(remoteById.get(s.id)) !== JSON.stringify(s)).length;
+      const samePlan = JSON.stringify(data.planning) === JSON.stringify(planning);
+      const line = t => cmp.append(el('div', null, t));
+      line('Dernière sauvegarde sur GitHub : ' + (data.exported ? new Date(data.exported).toLocaleString('fr-FR') : '–'));
+      line('Semaine type : ' + (samePlan ? 'identique ✓' : 'DIFFÉRENTE (ici : ' + fmt(planTs()) + ' · GitHub : ' + fmt(data.planningTs || 0) + ')'));
+      line('Séances : ' + sessions.length + ' ici, ' + remoteById.size + ' sur GitHub' + (onlyHere || onlyThere || diff ? ' · ' + [onlyHere && onlyHere + ' seulement ici', onlyThere && onlyThere + ' seulement sur GitHub', diff && diff + ' différente(s)'].filter(Boolean).join(', ') : ' · identiques ✓'));
+      if (!samePlan || onlyThere || diff){
+        const fix = el('button','btn sm','Reprendre la version GitHub sur cet appareil'); fix.type = 'button'; fix.style.justifySelf = 'start'; fix.style.marginTop = '4px';
+        fix.onclick = async () => { if (!confirm('Remplacer la semaine type et les séances de cet appareil par celles de GitHub ? Les séances qui n’existent qu’ici sont gardées.')) return; close(); await ghPull(true, { remoteWins:true }); };
+        cmp.append(fix);
+      }
+    }).catch(e => { cmp.textContent = e.message; });
+  }
   const foot = el('div','sheet-foot');
   const off = el('button','btn ghost','Déconnecter'); off.type = 'button'; off.hidden = !cur.token;
   off.onclick = () => { lsSet('pds_github', null); lsSet('pds_github_ok', null); syncUI(); toast('Synchronisation GitHub désactivée sur cet appareil'); close(); };
@@ -134,7 +171,7 @@ function openGithub(){
       if (!info.private){ ok.disabled = false; return say('Ce dépôt est PUBLIC : tes données de santé seraient visibles par tout le monde. Rends-le privé (Settings → Danger Zone → Change visibility) ou utilise un autre dépôt.', true); }
       if (info.permissions && !info.permissions.push){ ok.disabled = false; return say('La clé peut lire ce dépôt mais pas y écrire : donne-lui « Contents : Read and write ».', true); }
       lsSet('pds_github', cfg); close(); toast('Connecté à ' + cfg.repo);
-      await ghPull(true);
+      await ghPull(true, { adoptPlanning:true });
       await ghPush();
     } catch(e){ ok.disabled = false; say(e.message, true); }
   };

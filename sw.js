@@ -4,7 +4,7 @@
      (ou réseau trop lent), on sert la copie en cache.
    - Polices Google : cache d'abord (leurs fichiers ne changent jamais à URL constante).
    Changer VERSION à chaque publication force aussi le remplacement du cache chez tout le monde. */
-const VERSION = 'v5';
+const VERSION = 'v6';
 const CACHE = 'sport-' + VERSION;
 const CORE = ['./', './index.html', './css/app.css', './js/catalog.js', './js/app.js', './js/timer.js', './js/backup.js', './js/sync.js', './js/main.js',
   './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
