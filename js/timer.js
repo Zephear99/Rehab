@@ -1,6 +1,10 @@
 "use strict";
 /* ================= minuteur ================= */
-const settings = Object.assign({ autoRest:false, signal:'both', restMus:90, lockScreen:true }, lsGet('pds_settings') || {});
+const settings = Object.assign({ autoRest:false, signal:'both', restMus:90 }, lsGet('pds_settings') || {});
+/* Écran verrouillé : 'notif' (notification, ne touche pas à la musique), 'media' (lecteur avec décompte en direct,
+   met la musique en pause), 'off'. L'ancien réglage oui/non passe en 'notif' : le lecteur coupait la musique. */
+if (!['notif','media','off'].includes(settings.lockMode)) settings.lockMode = settings.lockScreen === false ? 'off' : 'notif';
+delete settings.lockScreen;
 if (settings.sound === false && !(lsGet('pds_settings') || {}).signal) settings.signal = 'none';
 delete settings.sound;
 const canVibrate = typeof navigator.vibrate === 'function';
@@ -66,6 +70,19 @@ async function notifyEnd(){
     return true;
   } catch(e){ return false; }
 }
+/* Mode « notification » : en quittant l'app pendant un repos, une notification silencieuse indique l'heure de fin,
+   visible sur l'écran verrouillé. Elle ne fait pas de décompte (une notification web ne peut pas en afficher),
+   mais elle ne coupe pas la musique, contrairement au lecteur multimédia. */
+async function notifyRunning(){
+  if (settings.lockMode !== 'notif' || !T.running || T.pausedLeft != null || isOver()) return;
+  if (!canNotify || Notification.permission !== 'granted') return;
+  const hhmm = t => new Date(t).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+  try {
+    const reg = await navigator.serviceWorker.getRegistration(); if (!reg) return;
+    await reg.showNotification(T.mode === 'down' ? 'Repos · fin à ' + hhmm(T.end) : 'Chrono lancé à ' + hhmm(T.start),
+      { body:T.label + ' · touche pour revenir à la séance', tag:'pds-timer', silent:true, timestamp:T.mode === 'down' ? T.end : T.start, icon:'icon-192.png', badge:'icon-192.png' });
+  } catch(e){}
+}
 async function clearNotify(){
   if (!canNotify) return;
   try { const reg = await navigator.serviceWorker.getRegistration(); if (reg) (await reg.getNotifications({ tag:'pds-timer' })).forEach(n => n.close()); } catch(e){}
@@ -91,7 +108,7 @@ function quietWavURL(){
   return URL.createObjectURL(new Blob([buf], { type:'audio/wav' }));
 }
 function bgStart(){
-  if (!settings.lockScreen || !canLockScreen) return;
+  if (settings.lockMode !== 'media' || !canLockScreen) return;
   try {
     if (!bgAudio){
       bgAudio = new Audio(quietWavURL()); bgAudio.loop = true;
@@ -141,10 +158,13 @@ function startTimer(sec, label){
 }
 function startChrono(){ T.mode = 'up'; T.start = Date.now(); T.label = 'Chrono'; T.running = true; T.pausedLeft = null; T.rang = false; timerStarted(); }
 // Appelé dans le geste de l'utilisateur : c'est le seul moment où Chrome autorise à lancer le son et à demander les notifications.
-function timerStarted(){ clearNotify(); if (settings.lockScreen) askNotify(); bgStart(); tickLoop(); keepAwake(true); }
+function timerStarted(){ clearNotify(); if (settings.lockMode !== 'off') askNotify(); bgStart(); tickLoop(); keepAwake(true); }
 function stopTimer(){ T.running = false; T.pausedLeft = null; clearInterval(T.iv); T.iv = null; keepAwake(false); bgStop(); clearNotify(); paintTimer(); }
 // Retour dans l'app : l'écran a pu se verrouiller, ce qui libère le maintien de l'écran allumé.
-document.addEventListener('visibilitychange', () => { if (!document.hidden && T.running){ keepAwake(true); clearNotify(); paintTimer(); } });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden){ notifyRunning(); return; }
+  if (T.running){ keepAwake(true); clearNotify(); paintTimer(); }
+});
 function restartTimer(){ startTimer(T.last || settings.restMus, T.label); }
 function togglePause(){
   if (!T.running || isOver()) return;
@@ -234,17 +254,19 @@ function openTimer(){
     res.className = 'vres ' + (ok || !canVibrate ? '' : 'bad');
     res.textContent = !canVibrate
       ? 'Safari sur iPhone ne donne pas accès au vibreur. L’app tente un retour haptique (iOS 18 et plus, mode silencieux désactivé). Si rien ne vibre, choisis « Son seul » : le flash de l’écran reste actif.'
-      : ok ? 'Le navigateur a accepté la demande. Si le téléphone n’a pas vibré, vérifie que les vibrations sont activées dans les réglages du téléphone (mode Ne pas déranger, économie d’énergie).'
+      : ok ? 'Chrome a transmis la vibration au téléphone. S’il n’a pas vibré, c’est un réglage d’Android qui la coupe : le plus souvent le mode Silencieux (haut-parleur barré en haut de l’écran), qui supprime toutes les vibrations. Passe en mode Vibreur, et vérifie Réglages → Sons et vibrations → Intensité des vibrations, ainsi que Ne pas déranger.'
            : 'Le vibreur est bloqué ici : le navigateur refuse de faire vibrer une page affichée à l’intérieur de claude.ai. Utilise « Son seul », ou la version installée de l’app, où le vibreur fonctionne sur Android.';
   }
   if (vibState === 'blocked'){ res.className = 'vres bad'; res.textContent = 'La dernière vibration a été refusée par le navigateur. Touche « Tester le vibreur » pour en savoir plus.'; }
   opts.append(segRow('Repos en musculation', 'Durée lancée par le bouton Repos des exercices de musculation.', [[60,'1:00'],[90,'1:30'],[120,'2:00']], 'restMus',
     () => { [...pr.children].forEach(b => b.classList.toggle('pick', b.textContent === fmtDur(settings.restMus))); const m = $('#tMain'); if (m) m.dataset.k = ''; paintTimer(); if (tab === 'sess') renderSess(); }));
-  if (canLockScreen) opts.append(segRow('Écran verrouillé', 'Affiche le temps restant sur l’écran verrouillé et fait vibrer à la fin, même téléphone verrouillé. Met en pause la musique d’une autre app pendant le minuteur.',
-    [[true,'Afficher'],[false,'Non']], 'lockScreen', v => { if (v){ askNotify(); if (T.running) bgStart(); } else bgStop(); }));
+  if (canNotify || canLockScreen) opts.append(segRow('Écran verrouillé',
+    'Notification : l’heure de fin du repos s’affiche quand tu quittes l’app, ta musique continue. En direct : le temps défile sur l’écran verrouillé, mais ta musique est mise en pause pendant le repos.',
+    [['notif','Notification'], ...(canLockScreen ? [['media','En direct']] : []), ['off','Rien']], 'lockMode',
+    v => { if (v !== 'off') askNotify(); if (v === 'media'){ if (T.running) bgStart(); } else bgStop(); }));
   opts.append(segRow('Repos automatique', 'Lance le minuteur dès qu’un exercice est coché.', [[true,'Oui'],[false,'Non']], 'autoRest'));
   const note = el('p','vres');
-  note.textContent = settings.lockScreen && canLockScreen
+  note.textContent = settings.lockMode !== 'off'
     ? (canNotify && Notification.permission === 'denied' ? 'Notifications bloquées : téléphone verrouillé, la fin du repos ne vibrera pas. Réactive-les dans les réglages du site (cadenas dans la barre d’adresse) ou de l’app.' : 'Pour vibrer téléphone verrouillé, l’app envoie une notification : accepte-la quand Chrome la demande.')
     : 'Garde l’écran allumé pendant le repos : un téléphone verrouillé met la page en pause et aucun signal ne part.';
   opts.append(note);
