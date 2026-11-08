@@ -4,6 +4,11 @@ const CAT = CATALOG;
 const PROGS = CAT.programs, EXOS = CAT.exercises, REGLES = CAT.regles || [];
 const PBY = Object.fromEntries(PROGS.map(p => [p.id, p]));
 const EBY = Object.fromEntries(EXOS.map(e => [e.id, e]));
+/* Historique partagé : un même exercice présent dans plusieurs séances porte `hist` = id de l'exercice de référence.
+   Les dernières valeurs, les records et la progression se lisent alors toutes séances confondues. */
+const HKEY = id => (EBY[id] && EBY[id].hist) || id;
+const sameEx = (a, b) => HKEY(a) === HKEY(b);
+const sharedHist = id => EXOS.some(e => e.id !== id && HKEY(e.id) === HKEY(id));
 const CAT_ORDER = ['Rééducation','Mobilité','Proprioception','Musculation'];
 const CAT_CLS = { 'Mobilité':'c-mob', 'Rééducation':'c-reh', 'Musculation':'c-mus', 'Proprioception':'c-pro' };
 const CAT_VAR = { 'Mobilité':'--cat-mob', 'Rééducation':'--cat-reh', 'Musculation':'--cat-mus', 'Proprioception':'--cat-pro' };
@@ -156,7 +161,7 @@ function restOf(e){
 }
 function lastValuesFor(exId, dateStr){
   const past = sessions.filter(s => s && s.done && s.date < dateStr && Array.isArray(s.items)).sort((a, b) => a.date < b.date ? 1 : -1);
-  for (const s of past){ const it = s.items.find(i => i.exId === exId); if (it && Array.isArray(it.sets) && it.sets.some(hasVal)) return { date:s.date, sets:it.sets }; }
+  for (const s of past){ const it = s.items.find(i => sameEx(i.exId, exId)); if (it && Array.isArray(it.sets) && it.sets.some(hasVal)) return { date:s.date, sets:it.sets }; }
   return null;
 }
 function exosFor(slots){
@@ -530,7 +535,7 @@ const fmtN = v => String(v).replace('.', ',');
 /* Séances terminées où l'exercice a été renseigné, de la plus ancienne à la plus récente. */
 function histOf(exId, beforeDate){
   return sessions.filter(x => x.done && Array.isArray(x.items) && (!beforeDate || x.date < beforeDate)).sort((a, b) => a.date < b.date ? -1 : 1)
-    .map(x => { const it = x.items.find(i => i.exId === exId); return it && it.sets.some(hasVal) ? { date:x.date, sets:it.sets, douleur:it.douleur } : null; }).filter(Boolean);
+    .map(x => { const it = x.items.find(i => sameEx(i.exId, exId)); return it && it.sets.some(hasVal) ? { date:x.date, sets:it.sets, douleur:it.douleur } : null; }).filter(Boolean);
 }
 /* Meilleures valeurs ; 1RM estimé par la formule d'Epley (charge × (1 + reps / 30)). */
 function bestsOf(list){
@@ -944,7 +949,8 @@ function renderHist(){
   const series = { c:{}, t:{}, r:{} };
   done.forEach(s => s.items.forEach(i => { ['c','t','r'].forEach(k => {
     const v = i.sets.map(x => parseFloat(String(x[k] || '').replace(',', '.'))).filter(Number.isFinite);
-    if (v.length) (series[k][i.exId] = series[k][i.exId] || []).push({ date:s.date, v:Math.max(...v) }); }); }));
+    const key = HKEY(i.exId);
+    if (v.length) (series[k][key] = series[k][key] || []).push({ date:s.date, v:Math.max(...v) }); }); }));
   const avail = k => Object.keys(series[k]).filter(id => series[k][id].length >= 2 && EBY[id] && series[k][id].some(p => p.v > 0));
   if (!avail(histMetric).length) histMetric = ['c','t','r'].find(k => avail(k).length) || 'c';
   const ids = avail(histMetric).sort((a, b) => bySeq(EBY[a].prog, EBY[b].prog) || EBY[a].nom.localeCompare(EBY[b].nom));
@@ -954,7 +960,7 @@ function renderHist(){
     ['c','t','r'].forEach(k => { const b = el('button', null, MET[k][0]); b.type = 'button'; b.setAttribute('aria-pressed', String(k === histMetric)); b.disabled = !avail(k).length;
       if (b.disabled) b.style.opacity = '.4'; b.onclick = () => { histMetric = k; renderHist(); }; seg.append(b); });
     const sel = el('select'); sel.id = 'histEx'; sel.setAttribute('aria-label','Exercice');
-    ids.forEach(k => { const o = el('option', null, EBY[k].nom + ' · ' + (PBY[EBY[k].prog] || {}).label); o.value = k; sel.append(o); });
+    ids.forEach(k => { const o = el('option', null, EBY[k].nom + ' · ' + (sharedHist(k) ? 'toutes séances' : (PBY[EBY[k].prog] || {}).label)); o.value = k; sel.append(o); });
     if (!ids.includes(histEx)) histEx = ids[0]; sel.value = histEx; sel.onchange = () => { histEx = sel.value; renderHist(); };
     ctl.append(seg, sel); c4.append(ctl);
     const pts = series[histMetric][histEx].sort((a, b) => a.date < b.date ? -1 : 1).slice(-15).map(p => ({ l:fmtShort(p.date), s:fmtShort(p.date).slice(0,5), v:p.v }));
