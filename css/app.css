@@ -1,61 +1,65 @@
 /* Layout : carnet sobre. Ordinateur = colonne de navigation fine + colonne de travail ;
    téléphone = en-tête compact + onglets en bas. Filets fins plutôt qu'ombres, une seule couleur d'accent par thème. */
+@font-face{font-family:'Archivo';src:url('../fonts/archivo.woff2') format('woff2');font-weight:100 900;font-stretch:62% 125%;font-style:normal;font-display:swap}
+@font-face{font-family:'Instrument Sans';src:url('../fonts/instrument-sans.woff2') format('woff2');font-weight:400 700;font-style:normal;font-display:swap}
+/* Jetons. --body-base : silhouette et sillons entre les muscles ; --body-m : muscle au repos ;
+   --mus-1 : muscle principal (et palier le plus fort) ; --mus-2 : muscle en soutien. */
 :root{
-  --body-base:#E4E7E2; --body-m:#D2D7D0; --mus-1:#C4573E; --mus-2:#EBB8A9; --ground:#F4F5F3; --surface:#FFFFFF; --surface-2:#F8F9F7; --surface-3:#ECEEEA;
-  --line:#E2E5E0; --line-2:#CDD2CB;
-  --ink:#16191B; --ink-2:#50585C; --ink-3:#848C8F;
-  --accent:#2E4A62; --accent-deep:#223A4F; --accent-soft:#E6ECF1; --on-accent:#FFFFFF;
-  --cat-mob:#4E7D74; --cat-reh:#9A6A4B; --cat-mus:#536C9A; --cat-pro:#7A6E98;
-  --ok:#3F7A5A; --warn:#A97A2C; --crit:#A4473A;
-  --shadow:0 1px 2px rgba(20,24,26,.04);
-  --r:12px; --r-s:8px;
-  --f-d:'Instrument Serif',Georgia,'Times New Roman',serif;
+  --body-base:#CFD4CD; --body-m:#ECEEEA; --mus-1:#E2452B; --mus-2:#F3B3A4; --ground:#F1F2EF; --surface:#FFFFFF; --surface-2:#F7F8F5; --surface-3:#E9EBE6;
+  --line:#DFE2DC; --line-2:#C6CBC3;
+  --ink:#12161A; --ink-2:#465055; --ink-3:#697378;
+  --accent:#2443C8; --accent-deep:#1A33A0; --accent-soft:#E6EAFB; --on-accent:#FFFFFF;
+  --cat-mob:#2F8576; --cat-reh:#B0683A; --cat-mus:#3F62B8; --cat-pro:#7A5FB0;
+  --ok:#2F7D55; --warn:#A8741C; --crit:#B23A2B;
+  --shadow:0 1px 2px rgba(18,22,26,.05);
+  --r:14px; --r-s:9px;
+  --f-d:'Archivo','Arial Narrow','Helvetica Neue',Arial,sans-serif;
   --f-b:'Instrument Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]):not([data-skin]){
-    --body-base:#2A2D30; --body-m:#3A3E42; --mus-1:#E07A5F; --mus-2:#7E4D40; --ground:#111213; --surface:#18191B; --surface-2:#1C1E20; --surface-3:#25272A;
-    --line:#2A2C2F; --line-2:#3A3D41; --ink:#E9E8E5; --ink-2:#A5A6A4; --ink-3:#77797A;
-    --accent:#AFC0D2; --accent-deep:#CAD7E4; --accent-soft:#242C35; --on-accent:#111417;
-    --cat-mob:#8DB5AB; --cat-reh:#CC9F80; --cat-mus:#93A9D3; --cat-pro:#B2A6D1;
-    --ok:#7DBA97; --warn:#D3AA62; --crit:#DA8577; --shadow:none; color-scheme:dark;
+    --body-base:#454B51; --body-m:#22262A; --mus-1:#FF6A4D; --mus-2:#86402F; --ground:#0E1012; --surface:#16181B; --surface-2:#1A1D20; --surface-3:#23272B;
+  --line:#272B2F; --line-2:#3A3F44; --ink:#ECEDEA; --ink-2:#A9ADAB; --ink-3:#7F8487;
+  --accent:#8EA6FF; --accent-deep:#B1C2FF; --accent-soft:#1C2440; --on-accent:#0B1020;
+  --cat-mob:#7FC2B3; --cat-reh:#DDA57F; --cat-mus:#8FAAE6; --cat-pro:#B9A5E3;
+  --ok:#78C299; --warn:#DDB060; --crit:#E88672; --shadow:none; color-scheme:dark;
   }
 }
 :root[data-theme="dark"]:not([data-skin]),:root[data-skin="graphite"]{
-  --body-base:#2A2D30; --body-m:#3A3E42; --mus-1:#E07A5F; --mus-2:#7E4D40; --ground:#111213; --surface:#18191B; --surface-2:#1C1E20; --surface-3:#25272A;
-  --line:#2A2C2F; --line-2:#3A3D41; --ink:#E9E8E5; --ink-2:#A5A6A4; --ink-3:#77797A;
-  --accent:#AFC0D2; --accent-deep:#CAD7E4; --accent-soft:#242C35; --on-accent:#111417;
-  --cat-mob:#8DB5AB; --cat-reh:#CC9F80; --cat-mus:#93A9D3; --cat-pro:#B2A6D1;
-  --ok:#7DBA97; --warn:#D3AA62; --crit:#DA8577; --shadow:none; color-scheme:dark;
+  --body-base:#454B51; --body-m:#22262A; --mus-1:#FF6A4D; --mus-2:#86402F; --ground:#0E1012; --surface:#16181B; --surface-2:#1A1D20; --surface-3:#23272B;
+  --line:#272B2F; --line-2:#3A3F44; --ink:#ECEDEA; --ink-2:#A9ADAB; --ink-3:#7F8487;
+  --accent:#8EA6FF; --accent-deep:#B1C2FF; --accent-soft:#1C2440; --on-accent:#0B1020;
+  --cat-mob:#7FC2B3; --cat-reh:#DDA57F; --cat-mus:#8FAAE6; --cat-pro:#B9A5E3;
+  --ok:#78C299; --warn:#DDB060; --crit:#E88672; --shadow:none; color-scheme:dark;
 }
 :root[data-skin="porcelaine"]{color-scheme:light}
 :root[data-skin="sable"]{
-  --body-base:#E6E2DA; --body-m:#D5CFC3; --mus-1:#B5533A; --mus-2:#E6B8A5; --ground:#F2F0EC; --surface:#FBFAF7; --surface-2:#F6F4F0; --surface-3:#E9E6DF;
-  --line:#E0DCD3; --line-2:#CBC5B9; --ink:#1F1D1A; --ink-2:#59544C; --ink-3:#8A8478;
-  --accent:#55603F; --accent-deep:#434C31; --accent-soft:#E8EADF; --on-accent:#FFFFFF;
-  --cat-mob:#5B7F70; --cat-reh:#9A6A4B; --cat-mus:#5A6E92; --cat-pro:#7E7094;
-  --ok:#4E7A4F; --warn:#A27426; --crit:#9F4637; --shadow:0 1px 2px rgba(31,29,26,.04); color-scheme:light;
+  --body-base:#D3CCBE; --body-m:#EFEBE3; --mus-1:#C9472B; --mus-2:#EBB7A4; --ground:#F1EEE8; --surface:#FCFBF8; --surface-2:#F6F3EE; --surface-3:#E8E4DB;
+  --line:#DFDACF; --line-2:#C8C1B3; --ink:#1E1C18; --ink-2:#544F47; --ink-3:#766F63;
+  --accent:#4C5A2E; --accent-deep:#3A4622; --accent-soft:#E7EBDA; --on-accent:#FFFFFF;
+  --cat-mob:#3F7F6C; --cat-reh:#A8663A; --cat-mus:#4A66A0; --cat-pro:#7A629C;
+  --ok:#3F7A46; --warn:#9A6D1C; --crit:#A53F2E; --shadow:0 1px 2px rgba(31,29,26,.05); color-scheme:light;
 }
 :root[data-skin="encre"]{
-  --body-base:#EDEDED; --body-m:#D9D9D9; --mus-1:#111111; --mus-2:#8F8F8F; --ground:#FFFFFF; --surface:#FFFFFF; --surface-2:#FAFAFA; --surface-3:#F0F0F0;
-  --line:#E4E4E4; --line-2:#C9C9C9; --ink:#0A0A0A; --ink-2:#4A4A4A; --ink-3:#7E7E7E;
-  --accent:#0A0A0A; --accent-deep:#000000; --accent-soft:#F0F0F0; --on-accent:#FFFFFF;
-  --cat-mob:#5A5A5A; --cat-reh:#5A5A5A; --cat-mus:#5A5A5A; --cat-pro:#5A5A5A;
-  --ok:#2F6B47; --warn:#8F6A1F; --crit:#9A3A2D; --shadow:none; color-scheme:light;
+  --body-base:#C4C4C4; --body-m:#F0F0F0; --mus-1:#0A0A0A; --mus-2:#8A8A8A; --ground:#FFFFFF; --surface:#FFFFFF; --surface-2:#FAFAFA; --surface-3:#EFEFEF;
+  --line:#E2E2E2; --line-2:#BDBDBD; --ink:#0A0A0A; --ink-2:#3F3F3F; --ink-3:#6B6B6B;
+  --accent:#0A0A0A; --accent-deep:#000000; --accent-soft:#EFEFEF; --on-accent:#FFFFFF;
+  --cat-mob:#4F4F4F; --cat-reh:#4F4F4F; --cat-mus:#4F4F4F; --cat-pro:#4F4F4F;
+  --ok:#2A6A44; --warn:#84601A; --crit:#9A3A2D; --shadow:none; color-scheme:light;
 }
 :root[data-skin="nuit"]{
-  --body-base:#1E2737; --body-m:#2C3749; --mus-1:#E08A6A; --mus-2:#74503F; --ground:#0C111A; --surface:#121925; --surface-2:#161E2B; --surface-3:#1E2737;
-  --line:#222C3C; --line-2:#323E52; --ink:#E5E8EE; --ink-2:#A1A9B6; --ink-3:#717B8A;
-  --accent:#D2BC88; --accent-deep:#E4D2A8; --accent-soft:#2A2A28; --on-accent:#14110A;
-  --cat-mob:#8DB5AB; --cat-reh:#CC9F80; --cat-mus:#93A9D3; --cat-pro:#B2A6D1;
-  --ok:#7DBA97; --warn:#D3AA62; --crit:#DA8577; --shadow:none; color-scheme:dark;
+  --body-base:#3A4763; --body-m:#1A2334; --mus-1:#FF8A66; --mus-2:#8A5240; --ground:#0A0F18; --surface:#111826; --surface-2:#151D2C; --surface-3:#1E2839;
+  --line:#222D40; --line-2:#344158; --ink:#E7EAF0; --ink-2:#A6AEBC; --ink-3:#7C8697;
+  --accent:#E0C27A; --accent-deep:#EED69C; --accent-soft:#2B2A22; --on-accent:#16120A;
+  --cat-mob:#7FC2B3; --cat-reh:#DDA57F; --cat-mus:#8FAAE6; --cat-pro:#B9A5E3;
+  --ok:#78C299; --warn:#DDB060; --crit:#E88672; --shadow:none; color-scheme:dark;
 }
 :root[data-skin="foret"]{
-  --body-base:#202A24; --body-m:#2E3A33; --mus-1:#E08A6A; --mus-2:#74503F; --ground:#0E1311; --surface:#141B17; --surface-2:#18201C; --surface-3:#202A24;
-  --line:#25302A; --line-2:#36433B; --ink:#E4EAE6; --ink-2:#A2ADA6; --ink-3:#737F78;
-  --accent:#A8C2AE; --accent-deep:#C4D8C8; --accent-soft:#1F2C24; --on-accent:#0D1410;
-  --cat-mob:#8DB5AB; --cat-reh:#CC9F80; --cat-mus:#93A9D3; --cat-pro:#B2A6D1;
-  --ok:#86BE98; --warn:#D3AA62; --crit:#DA8577; --shadow:none; color-scheme:dark;
+  --body-base:#3B4C42; --body-m:#19221D; --mus-1:#FF8A66; --mus-2:#8A5240; --ground:#0C110F; --surface:#131A16; --surface-2:#17201B; --surface-3:#202B25;
+  --line:#25312A; --line-2:#37463D; --ink:#E6ECE8; --ink-2:#A5B0A9; --ink-3:#7A877F;
+  --accent:#9FD3AE; --accent-deep:#BFE3C9; --accent-soft:#1C2C22; --on-accent:#0B140F;
+  --cat-mob:#7FC2B3; --cat-reh:#DDA57F; --cat-mus:#8FAAE6; --cat-pro:#B9A5E3;
+  --ok:#86C89C; --warn:#DDB060; --crit:#E88672; --shadow:none; color-scheme:dark;
 }
 
 *{box-sizing:border-box}
@@ -459,3 +463,65 @@ svg.body{display:block;width:100%;height:auto}
 .eh .d{color:var(--ink-3)}
 .eh .s{display:flex;flex-wrap:wrap;gap:4px 12px;color:var(--ink-2);font-variant-numeric:tabular-nums}
 .exsheet .meta{display:flex;gap:4px 12px;flex-wrap:wrap;align-items:center;font-size:13px;color:var(--ink-3);margin-top:-6px}
+
+/* ---------- typographie athlétique ---------- */
+/* Titres et chiffres : Archivo resserré et gras. Texte courant : Instrument Sans. */
+.mark b,.ph h1,.empty strong,.ring .in b,.grp-btn h2,.blocrow .bl,.bilan h3,.day .dn,.sheet-in h2,.pcard .pn,.stat .v,.sess .dt b,.rule .n,.etape h3,.rec .v,.fact .v,.tp-txt b{
+  font-family:var(--f-d);font-weight:750;font-stretch:86%;letter-spacing:-.018em;font-variant-numeric:tabular-nums lining-nums}
+.mark b{font-size:18px;font-weight:800}
+.ph h1{font-size:clamp(32px,8.4vw,46px);font-weight:800;font-stretch:82%;line-height:.98;letter-spacing:-.025em}
+.grp-btn h2{font-size:23px}
+.sheet-in h2{font-size:28px;font-weight:800;font-stretch:82%;line-height:1.05}
+.bilan h3,.etape h3{font-size:23px}
+.pcard .pn{font-size:19px;line-height:1.12}
+.day .dn{font-size:19px}
+.stat .v{font-size:38px;font-weight:800}
+.stat .u{font-weight:500;font-stretch:100%;letter-spacing:0}
+.ring .in b{font-size:40px;font-weight:800}
+.fact .v{font-size:22px;line-height:1.15}
+.rec .v{font-size:23px}
+.sess .dt b{font-size:26px}
+.rule .n{font-size:24px}
+.blocrow .bl{font-size:18px}
+.empty strong{font-size:22px}
+.sh h2,.chart h3,.muscard summary{font-family:var(--f-d);font-weight:700;font-stretch:90%;font-size:16.5px;letter-spacing:-.01em}
+/* Étiquettes : casse normale, plus de capitales espacées qui se coupent sur deux lignes. */
+.eyebrow,.status,.grp-btn .cat,.instr dt,.sethead,.pcard .pz,.tl .lv,.lg-h{
+  text-transform:none;letter-spacing:0;font-family:var(--f-d);font-weight:600;font-stretch:94%;font-size:12.5px}
+.sethead{font-size:11.5px}
+.pcard .pz{flex-wrap:nowrap;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.pcard .pz i{display:inline-block;margin-right:7px;vertical-align:1px}
+.btn{font-family:var(--f-d);font-stretch:94%;font-weight:650;letter-spacing:0}
+.btn.sm{font-weight:600}
+nav.tabs button{font-family:var(--f-d);font-stretch:92%;font-weight:600;font-size:11px}
+nav.tabs button[aria-selected="true"]{color:var(--accent)}
+nav.tabs button[aria-selected="true"]::before{height:3px;left:28%;right:28%}
+.presc{font-family:var(--f-d);font-weight:700;font-stretch:90%;font-size:13.5px}
+
+/* ---------- synthèse de séance ---------- */
+.hero{border-radius:18px}
+.ring svg circle:last-child{stroke-linecap:round}
+.tick{width:44px;height:44px;border-width:1.5px}
+.tick[aria-pressed="true"]{background:var(--ok);border-color:var(--ok);color:#fff}
+.bar{height:3px}
+.bar i{background:var(--ok)}
+
+/* ---------- douleur : cibles tactiles larges ---------- */
+.painw{width:100%}
+.pain{display:grid;grid-template-columns:repeat(11,minmax(0,1fr));gap:3px;width:100%;max-width:440px}
+.pain button,.pain.big button{width:auto;height:40px;border-radius:9px;border:1px solid var(--line);font-family:var(--f-d);font-weight:600;font-size:14px;background:var(--surface)}
+.pain button[aria-pressed="true"]{border-color:transparent}
+@media (max-width:420px){.pain.big button{width:auto;height:40px;font-size:14px}}
+
+/* ---------- carte musculaire : complément ---------- */
+.thumb{width:64px;height:64px;padding:3px;border-radius:12px;background:var(--surface-2);overflow:hidden}
+.pickable [data-m]{cursor:pointer;transition:opacity .12s}
+.pickable [data-m].sel{stroke:var(--ink);stroke-width:2.4;paint-order:fill}
+.pickable[data-sel]:not([data-sel=""]) [data-m]:not(.sel){opacity:.55}
+.musinfo{min-height:44px;margin:8px 0 2px;padding:9px 12px;border-radius:var(--r-s);background:var(--surface-2);font-size:13px;line-height:1.45;color:var(--ink-2)}
+.musinfo b{font-family:var(--f-d);font-weight:700;font-stretch:90%;font-size:14.5px;color:var(--ink);display:block}
+.musscale{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-3);margin-top:8px;justify-content:center}
+.musscale .st{display:flex;gap:3px}
+.musscale i{width:22px;height:8px;border-radius:2px;display:block}
+.mc-fig .musscale{margin-top:2px}
+.bigbody{max-width:340px}

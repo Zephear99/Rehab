@@ -60,13 +60,13 @@ function toast(msg){ const t = el('div','toast',msg); document.body.append(t); s
 
 /* ================= thèmes ================= */
 const THEMES = [
-  { id:'auto',       nom:'Automatique', m:'Porcelaine le jour, Graphite la nuit, selon l’appareil', sw:['#F4F5F3','#18191B'] },
-  { id:'porcelaine', nom:'Porcelaine',  m:'Clair, gris froid, accent ardoise', sw:['#FFFFFF','#2E4A62'] },
-  { id:'sable',      nom:'Sable',       m:'Clair, gris chaud, accent olive', sw:['#FBFAF7','#55603F'] },
+  { id:'auto',       nom:'Automatique', m:'Porcelaine le jour, Graphite la nuit, selon l’appareil', sw:['#F1F2EF','#16181B'] },
+  { id:'porcelaine', nom:'Porcelaine',  m:'Clair, gris froid, accent bleu cobalt', sw:['#FFFFFF','#2443C8'] },
+  { id:'sable',      nom:'Sable',       m:'Clair, gris chaud, accent olive', sw:['#FCFBF8','#4C5A2E'] },
   { id:'encre',      nom:'Encre',       m:'Noir et blanc, contraste maximal', sw:['#FFFFFF','#0A0A0A'] },
-  { id:'graphite',   nom:'Graphite',    m:'Sombre neutre, accent bleu acier', sw:['#18191B','#AFC0D2'] },
-  { id:'nuit',       nom:'Nuit',        m:'Bleu nuit, accent or pâle', sw:['#121925','#D2BC88'] },
-  { id:'foret',      nom:'Forêt',       m:'Vert très sombre, accent sauge', sw:['#141B17','#A8C2AE'] },
+  { id:'graphite',   nom:'Graphite',    m:'Sombre neutre, accent bleu clair', sw:['#16181B','#8EA6FF'] },
+  { id:'nuit',       nom:'Nuit',        m:'Bleu nuit, accent or pâle', sw:['#111826','#E0C27A'] },
+  { id:'foret',      nom:'Forêt',       m:'Vert très sombre, accent menthe', sw:['#131A16','#9FD3AE'] },
 ];
 /* `data-theme` appartient au lecteur claude.ai : le choix de l'utilisateur passe par `data-skin`. */
 function currentTheme(){ let t = null; try { t = localStorage.getItem('pds_theme') || localStorage.getItem('cr_theme'); } catch(e){}
@@ -383,6 +383,10 @@ function renderSess(){
     let ready = false; setTimeout(() => { ready = true; }, 300); mc.ontoggle = () => { if (ready) lsSet('pds_mus_open', mc.open); };
     const sm = el('summary'); sm.append(el('span', null, 'Muscles sollicités'), el('span','hint', Object.keys(W).length + ' groupes musculaires')); mc.append(sm);
     const body = el('div','mc-body'); const fig = el('div','mc-fig'); fig.innerHTML = bodyMap([], [], { weights:nw, aria:'Muscles sollicités par la séance' });
+    const inf = musInfo('Touche un muscle pour voir les exercices qui le sollicitent.'); fig.append(musScale(), inf);
+    pickable(fig, k => { if (!k) return setMusInfo(inf, null);
+      const names = session.items.map(i => EBY[i.exId]).filter(e => e && (musOf(e).p.includes(k) || musOf(e).s.includes(k))).map(e => e.nom);
+      setMusInfo(inf, k, names.length ? names.join(' · ') : 'Pas sollicité dans cette séance.'); });
     const lst = el('div','mc-list');
     const ranked = Object.keys(W).sort((x, y) => W[y] - W[x]);
     const grp = (t, keys, c) => { if (!keys.length) return; const hh = el('div','lg-h'); hh.append(el('i', c), document.createTextNode(t)); const l = el('div','lg-l');
@@ -562,6 +566,8 @@ function openExercise(e){
   if (e.url){ const a = el('a','vid'); a.href = e.url; a.target = '_blank'; a.rel = 'noopener'; a.innerHTML = svgI(ICON.play); a.append('Voir la vidéo'); meta.append(a); }
   box.append(meta);
   const fig = el('div','bigbody'); fig.innerHTML = bodyMap(mu.p, mu.s, { aria:'Muscles sollicités : ' + mu.p.map(musLabel).join(', ') }); box.append(fig);
+  const inf = musInfo('Touche un muscle pour connaître son rôle dans cet exercice.'); fig.append(inf);
+  pickable(fig, k => setMusInfo(inf, k, k && (mu.p.includes(k) ? 'Muscle principal de cet exercice.' : mu.s.includes(k) ? 'Travaille en soutien.' : 'Pas sollicité par cet exercice.')));
   const leg = el('div','muslegend');
   [['Principaux', mu.p, 'p'], ['En soutien', mu.s, 's']].forEach(([t, list, c]) => { if (!list.length) return;
     const g = el('div'); const hh = el('div','lg-h'); hh.append(el('i', c), document.createTextNode(t)); g.append(hh);
@@ -594,7 +600,7 @@ function exBlock(it, e, idx){
   const box = el('div','ex' + (it.done ? ' is-done' : ''));
   const h = el('div','ex-h'); const left = el('div','main');
   const mu = musOf(e);
-  const th = el('button','thumb'); th.type = 'button'; th.innerHTML = bodyMap(mu.p, mu.s, { labels:false });
+  const th = el('button','thumb'); th.type = 'button'; th.innerHTML = thumbMap(mu);
   th.setAttribute('aria-label', 'Fiche et muscles : ' + e.nom); th.onclick = () => openExercise(e);
   const nm = el('button','t tlink', e.nom); nm.type = 'button'; nm.onclick = () => openExercise(e); left.append(nm);
   const m = el('div','meta');
@@ -657,70 +663,101 @@ function exBlock(it, e, idx){
 }
 
 /* ================= carte musculaire ================= */
-/* Silhouette stylisée vue de face et de dos (repère 200 × 400 par vue).
-   Chaque muscle est décrit pour le côté gauche puis reflété. */
+/* Silhouette vue de face et de dos (repère 200 × 400 par vue).
+   Chaque forme est décrite pour une moitié du corps puis reflétée autour de x = 100.
+   `sil` : contour du corps ; `front` / `back` : les groupes musculaires posés dessus. */
 const BODY = {
-  base:{
-    front:['M100 12C87 12 79 22 79 35C79 48 88 57 100 57Z', 'M40 214C33 216 31 230 35 240C38 246 46 245 48 238C50 230 49 220 46 214Z',
-           'M70 290C70 284 90 284 91 290C92 298 90 304 81 305C72 305 69 298 70 290Z', 'M68 378C66 386 70 392 80 392C88 392 90 386 87 378Z'],
-    back:['M100 12C87 12 79 22 79 35C79 48 88 57 100 57Z', 'M40 214C33 216 31 230 35 240C38 246 46 245 48 238C50 230 49 220 46 214Z',
-          'M70 292C70 286 90 286 91 292C92 300 90 304 81 305C72 305 69 299 70 292Z', 'M70 368C68 378 70 390 80 390C88 390 90 380 87 368Z'],
-  },
+  sil:'M100 8C88 8 80 18 80 32C80 44 85 53 92 57L92 64C90 69 84 72 74 74C60 75 50 82 47 96C44 112 43 130 44 148C40 166 35 186 32 208C29 218 27 232 31 244C34 250 41 249 44 242C47 232 47 220 45 211C50 192 57 172 60 152C62 140 63 128 63 118L64 112C63 135 66 158 70 176C66 190 63 205 63 222C62 250 65 272 69 290C67 300 67 310 68 318C64 335 66 355 72 374C70 380 64 386 64 391C64 395 72 396 84 395C90 394 90 388 88 382L87 374C92 352 93 330 89 312C91 302 92 294 92 288C95 265 97 242 99 222L100 220Z',
   front:{
-    neck:['M90 54L100 56L100 68L92 66Z'],
-    traps:['M90 58C86 64 80 69 72 72L92 74L92 66Z'],
-    delts_front:['M72 74C61 73 51 81 48 98L57 101C59 91 64 85 72 82Z'],
-    chest:['M98 78L98 118C86 124 70 120 61 108C59 96 63 87 75 80Z'],
-    biceps:['M49 104C45 117 45 132 49 147L58 147C60 132 61 117 59 104Z'],
-    forearms:['M48 151C40 168 36 188 35 210L46 212C50 192 56 171 59 151Z'],
-    abs:['M98 123L86 125C84 145 84 166 88 186L98 189Z'],
-    obliques:['M83 125L65 115C64 138 68 160 75 178L86 186C82 166 82 145 83 125Z'],
-    hipflex:['M98 193L88 190L76 182C78 195 84 205 93 212L98 214Z'],
-    quads:['M74 194C65 219 64 251 68 284L91 285C94 258 94 231 92 215C85 209 79 202 74 194Z'],
-    adductors:['M94 216C96 232 96 249 93 266L98 260L98 217Z'],
-    tibialis:['M73 308C69 330 69 352 73 374L80 374C80 352 81 330 81 308Z'],
-    calves:['M84 309C91 325 91 346 86 368L82 368C83 347 83 327 83 309Z'],
+    neck:['M93 59L100 60L100 73L91 71C92 67 93 63 93 59Z'],
+    traps:['M90 67C87 71 81 74 74 76L91 77Z'],
+    delts_front:['M72 77C61 77 52 84 49 97C48 102 49 106 50 108C55 101 62 94 71 89C73 85 73 81 72 77Z'],
+    chest:['M98 80L76 79C75 85 73 90 66 96C63 102 64 109 67 115C75 122 88 123 98 118Z'],
+    biceps:['M51 111C47 123 46 136 48 148L58 149C61 138 62 125 61 113C58 107 54 107 51 111Z'],
+    forearms:['M47 152C42 170 37 190 34 207L44 209C49 192 55 172 59 153Z'],
+    abs:['M98 122L88 124C87 128 87 132 87 136L98 136Z','M98 139L87 139C86 144 86 149 87 153L98 153Z','M98 156L87 156C87 161 88 166 89 170L98 170Z','M98 173L90 173C91 182 94 191 98 198Z'],
+    obliques:['M85 124L68 118C67 136 69 156 72 174C76 179 81 184 87 189C85 176 84 160 84 140Z'],
+    hipflex:['M70 180C76 189 84 197 94 204L95 211C84 207 74 205 66 205C66 196 68 188 70 180Z'],
+    quads:['M65 209C63 234 65 260 70 283L84 285C88 262 89 236 87 212C80 209 72 208 65 209Z','M89 252C91 263 90 274 88 285L92 284C94 274 95 263 94 253C92 249 90 249 89 252Z'],
+    adductors:['M89 214L96 216C96 230 95 242 94 252C92 248 90 248 89 252C90 240 90 226 89 214Z'],
+    tibialis:['M71 318C68 336 69 356 73 372L79 372C79 354 79 336 78 316Z'],
+    calves:['M82 314C89 328 91 348 87 370L82 372C82 352 82 332 82 314Z'],
   },
   back:{
-    neck:['M90 54L100 56L100 64L92 63Z'],
-    traps:['M100 58L91 60C86 67 79 71 70 74C82 80 92 92 100 118Z'],
-    delts_rear:['M69 75C58 74 50 82 47 98L57 101C59 91 63 85 71 81Z'],
-    upperback:['M72 81C66 89 64 99 66 110C77 107 87 106 96 108C92 96 84 87 72 81Z'],
-    lats:['M66 113C66 133 72 151 84 168L96 158C96 140 96 125 96 111C86 109 76 110 66 113Z'],
-    lowerback:['M100 138L97 140L97 160L86 172C87 180 92 186 100 189Z'],
-    triceps:['M49 104C45 117 45 132 49 147L58 147C60 132 61 117 59 104Z'],
-    forearms:['M48 151C40 168 36 188 35 210L46 212C50 192 56 171 59 151Z'],
-    abductors:['M85 184C75 181 68 187 66 199C71 194 77 191 86 190Z'],
-    glutes:['M98 193L87 191C74 193 67 204 68 219C74 229 88 231 98 227Z'],
-    hamstrings:['M70 224C66 248 68 269 72 290L91 290C94 268 94 247 94 230C86 233 76 231 70 224Z'],
-    adductors:['M95 230C96 245 96 256 94 267L98 262L98 230Z'],
-    calves:['M72 307C66 327 68 347 76 366L87 366C93 347 93 327 86 307Z'],
+    neck:['M93 59L100 59L100 66L92 66Z'],
+    traps:['M100 69L92 69C88 73 81 75 74 77C83 83 92 97 100 124Z'],
+    delts_rear:['M71 78C60 77 52 84 49 97C48 102 49 106 50 108C55 101 62 95 72 91C74 86 73 82 71 78Z'],
+    upperback:['M75 85C70 93 67 103 67 113C77 109 88 109 97 113C94 101 86 91 75 85Z'],
+    lats:['M66 117C66 137 70 157 80 176L97 160C97 145 97 130 97 117C87 113 76 113 66 117Z'],
+    lowerback:['M98 165L84 179C86 188 91 195 98 199Z'],
+    triceps:['M51 111C47 123 46 136 48 148L58 149C61 138 62 125 61 113C58 107 54 107 51 111Z'],
+    forearms:['M47 152C42 170 37 190 34 207L44 209C49 192 55 172 59 153Z'],
+    abductors:['M82 182C74 181 68 188 65 200C71 196 78 194 86 194Z'],
+    glutes:['M98 203L88 198C76 198 66 206 65 220C70 232 86 236 98 230Z'],
+    hamstrings:['M66 227C64 248 66 268 70 286L79 286C80 268 80 252 80 238C74 236 69 232 66 227Z','M83 239C83 254 83 270 82 286L90 286C93 268 94 250 94 237C90 239 86 240 83 239Z'],
+    adductors:['M96 237C97 250 96 260 95 270L98 264L98 236Z'],
+    calves:['M70 312C65 328 67 346 74 360L79 360C80 344 80 328 79 312Z','M81 312C81 328 81 344 82 360L86 360C91 346 92 328 88 312Z'],
   },
 };
-/* p : muscles principaux, s : secondaires. Avec `weights` (muscle → 0..1),
-   la carte devient une carte de fréquence : plus c'est foncé, plus c'est travaillé. */
+const MUS_STEPS = [32, 54, 77, 100];   // 4 paliers d'intensité, en % de la couleur muscle
+const musStep = w => (w <= 0 ? 0 : w < .3 ? 1 : w < .55 ? 2 : w < .8 ? 3 : 4);
+/* p : muscles principaux, s : secondaires. Avec `weights` (muscle → 0..1), la carte devient
+   une carte d'intensité en 4 paliers. `view` : 'both' | 'front' | 'back' ; `crop` : [x, y, l, h]. */
 function bodyMap(p, s, opts){
   opts = opts || {};
   const P = new Set(p || []), S = new Set(s || []), W = opts.weights || null;
   const fill = k => {
-    if (W){ const w = W[k] || 0; return w ? `color-mix(in srgb,var(--mus-1) ${Math.round(25 + w * 75)}%,var(--body-m))` : 'var(--body-m)'; }
+    if (W){ const st = musStep(W[k] || 0); return st ? `color-mix(in srgb,var(--mus-1) ${MUS_STEPS[st - 1]}%,var(--body-m))` : 'var(--body-m)'; }
     return P.has(k) ? 'var(--mus-1)' : S.has(k) ? 'var(--mus-2)' : 'var(--body-m)';
   };
+  const lvl = k => W ? musStep(W[k] || 0) : P.has(k) ? 2 : S.has(k) ? 1 : 0;
   const view = (name, dx) => {
-    const half = side => {
-      let out = BODY.base[name].map(d => `<path d="${d}" fill="var(--body-base)"/>`).join('');
-      for (const k in BODY[name]) BODY[name][k].forEach(d => {
-        out += `<path d="${d}" fill="${fill(k)}" data-m="${k}"><title>${(CAT.muscles || {})[k] || k}</title></path>`; });
-      return out;
-    };
-    return `<g transform="translate(${dx} 0)"><g>${half()}</g><g transform="translate(200 0) scale(-1 1)">${half()}</g>`
-      + (opts.labels === false ? '' : `<text x="100" y="412" text-anchor="middle" fill="var(--ink-3)" font-size="12" font-family="Instrument Sans, sans-serif" letter-spacing="1.5">${name === 'front' ? 'FACE' : 'DOS'}</text>`) + '</g>';
+    let half = `<path d="${BODY.sil}" fill="var(--body-base)" stroke-width="1.2"/>`;
+    for (const k in BODY[name]) BODY[name][k].forEach(d => { half += `<path d="${d}" fill="${fill(k)}" data-m="${k}" data-l="${lvl(k)}"><title>${musLabel(k)}</title></path>`; });
+    return `<g transform="translate(${dx} 0)"><g>${half}</g><g transform="translate(200 0) scale(-1 1)">${half}</g>`
+      + (opts.labels === false ? '' : `<text x="100" y="415" text-anchor="middle" stroke="none" fill="var(--ink-3)" font-size="12" font-weight="600" font-family="Archivo, sans-serif">${name === 'front' ? 'Face' : 'Dos'}</text>`) + '</g>';
   };
-  const h = opts.labels === false ? 400 : 420;
-  return `<svg class="body" viewBox="0 0 410 ${h}" role="img" aria-label="${opts.aria || 'Carte des muscles sollicités'}" stroke="var(--surface)" stroke-width="1.6" stroke-linejoin="round">${view('front', 0)}${view('back', 210)}</svg>`;
+  const v = opts.view || 'both', h = opts.labels === false ? 400 : 422;
+  const vb = opts.crop ? opts.crop.join(' ') : v === 'both' ? `0 0 410 ${h}` : `0 0 200 ${h}`;
+  return `<svg class="body" viewBox="${vb}" role="img" aria-label="${opts.aria || 'Carte des muscles sollicités'}" stroke="var(--body-base)" stroke-width="1.5" stroke-linejoin="round">`
+    + (v === 'both' ? view('front', 0) + view('back', 210) : view(v, 0)) + '</svg>';
 }
 const musLabel = k => (CAT.muscles || {})[k] || k;
 const musOf = e => (e && e.mus) || { p:[], s:[] };
+/* Vignette : une seule vue (celle qui montre le mieux les muscles principaux), recadrée en carré
+   autour des muscles sollicités pour qu'ils restent lisibles en petit. */
+function thumbMap(mu){
+  const score = n => mu.p.filter(k => BODY[n][k]).length * 2 + mu.s.filter(k => BODY[n][k]).length;
+  const view = score('back') > score('front') ? 'back' : 'front';
+  let keys = mu.p.filter(k => BODY[view][k]); if (!keys.length) keys = mu.p.concat(mu.s).filter(k => BODY[view][k]);
+  let x0 = 100, y0 = 400, y1 = 0;
+  keys.forEach(k => BODY[view][k].forEach(d => { const n = d.match(/-?\d+(\.\d+)?/g).map(Number);
+    for (let i = 0; i < n.length; i += 2){ x0 = Math.min(x0, n[i]); y0 = Math.min(y0, n[i + 1]); y1 = Math.max(y1, n[i + 1]); } }));
+  if (!keys.length) return bodyMap(mu.p, mu.s, { labels:false, view, crop:[-100, 0, 400, 400] });
+  // Le corps est symétrique : le cadre est centré sur x = 100, avec une marge autour des muscles.
+  const size = Math.min(400, Math.max(130, (100 - x0) * 2 + 44, y1 - y0 + 44));
+  const cy = Math.min(400 - size / 2, Math.max(size / 2, (y0 + y1) / 2));
+  return bodyMap(mu.p, mu.s, { labels:false, view, crop:[100 - size / 2, cy - size / 2, size, size] });
+}
+/* Légende des 4 paliers d'intensité. */
+function musScale(){
+  const d = el('div','musscale'), st = el('span','st');
+  MUS_STEPS.forEach(pc => { const i = el('i'); i.style.background = `color-mix(in srgb,var(--mus-1) ${pc}%,var(--body-m))`; st.append(i); });
+  d.append(el('span', null, 'Peu'), st, el('span', null, 'Beaucoup')); return d;
+}
+function musInfo(hint){ const d = el('div','musinfo', hint); d.dataset.hint = hint; d.setAttribute('aria-live','polite'); return d; }
+function setMusInfo(d, k, txt){ d.textContent = ''; if (!k){ d.textContent = d.dataset.hint; return; } d.append(el('b', null, musLabel(k)), document.createTextNode(txt)); }
+/* Appui sur un muscle : il s'allume sur les deux vues et `onPick(clé | null)` est appelé. */
+function pickable(fig, onPick){
+  fig.classList.add('pickable');
+  fig.addEventListener('click', ev => {
+    const t = ev.target.closest('[data-m]'); const k = t && t.getAttribute('data-m');
+    const was = fig.dataset.sel || ''; const now = k && k !== was ? k : '';
+    fig.dataset.sel = now;
+    fig.querySelectorAll('[data-m]').forEach(n => n.classList.toggle('sel', !!now && n.getAttribute('data-m') === now));
+    onPick(now || null);
+  });
+}
 
 
 
@@ -843,7 +880,7 @@ function renderLib(){
       left.append(m);
       const right = el('div','r'); right.append(el('div','presc', prescOf(e)));
       if (e.url){ const a = el('a','vid'); a.href = e.url; a.target = '_blank'; a.rel = 'noopener'; a.innerHTML = svgI(ICON.play); a.append('Vidéo'); a.style.fontSize = '12.5px'; right.append(a); }
-      const th = el('button','thumb'); th.type = 'button'; th.innerHTML = bodyMap(musOf(e).p, musOf(e).s, { labels:false }); th.setAttribute('aria-label','Fiche et muscles : ' + e.nom); th.onclick = () => openExercise(e);
+      const th = el('button','thumb'); th.type = 'button'; th.innerHTML = thumbMap(musOf(e)); th.setAttribute('aria-label','Fiche et muscles : ' + e.nom); th.onclick = () => openExercise(e);
       row.append(th, left, right); list.append(row);
     });
   }
@@ -865,7 +902,7 @@ function barChart(card, data, opts){
   const s = svgEl('svg', { viewBox:`0 0 ${W} ${H}`, role:'img', 'aria-label':card.querySelector('h3').textContent });
   for (let i = 0; i <= 4; i++){ const v = max * i / 4, y = mt + ih - ih * i / 4;
     s.append(svgEl('line', { x1:ml, x2:W-mr, y1:y, y2:y, stroke:'var(--line)', 'stroke-width':1, 'stroke-dasharray': i ? '2 3' : '' }));
-    const tx = svgEl('text', { x:ml-7, y:y+3.5, 'text-anchor':'end', fill:'var(--ink-3)', 'font-size':10, 'font-family':'Instrument Sans, sans-serif' }); tx.textContent = Math.round(v * 10) / 10; s.append(tx); }
+    const tx = svgEl('text', { x:ml-7, y:y+3.5, 'text-anchor':'end', fill:'var(--ink-3)', 'font-size':10, 'font-family':'Archivo, sans-serif' }); tx.textContent = Math.round(v * 10) / 10; s.append(tx); }
   const slot = iw / data.length, bw = Math.max(6, Math.min(30, slot - 8));
   data.forEach((d, i) => {
     const x = ml + slot * (i + .5) - bw / 2, bh = d.v / max * ih, last = i === data.length - 1;
@@ -874,8 +911,8 @@ function barChart(card, data, opts){
     g.append(svgEl('rect', { x:ml + slot * i, y:mt, width:slot, height:ih, fill:'transparent' }));
     g.addEventListener('pointerenter', ev => showTip(card, ev, `${d.l} · ${d.v}${opts.unit || ''}`)); g.addEventListener('pointerleave', () => hideTip(card));
     s.append(g);
-    if (d.v > 0 && data.length <= 12){ const vt = svgEl('text', { x:x + bw/2, y:mt+ih-bh-5, 'text-anchor':'middle', fill:'var(--ink-2)', 'font-size':10, 'font-family':'Instrument Sans, sans-serif' }); vt.textContent = d.v; s.append(vt); }
-    const t = svgEl('text', { x:ml + slot * (i + .5), y:H-8, 'text-anchor':'middle', fill: last ? 'var(--ink)' : 'var(--ink-3)', 'font-size':10, 'font-family':'Instrument Sans, sans-serif' }); t.textContent = d.s || d.l; s.append(t);
+    if (d.v > 0 && data.length <= 12){ const vt = svgEl('text', { x:x + bw/2, y:mt+ih-bh-5, 'text-anchor':'middle', fill:'var(--ink-2)', 'font-size':10, 'font-family':'Archivo, sans-serif' }); vt.textContent = d.v; s.append(vt); }
+    const t = svgEl('text', { x:ml + slot * (i + .5), y:H-8, 'text-anchor':'middle', fill: last ? 'var(--ink)' : 'var(--ink-3)', 'font-size':10, 'font-family':'Archivo, sans-serif' }); t.textContent = d.s || d.l; s.append(t);
   });
   card.append(s); addTip(card); return card;
 }
@@ -888,10 +925,10 @@ function lineChart(card, data, opts){
   const Y = v => mt + ih - (v - min) / (max - min || 1) * ih;
   const s = svgEl('svg', { viewBox:`0 0 ${W} ${H}`, role:'img', 'aria-label':card.querySelector('h3').textContent });
   if (opts.band){ s.append(svgEl('rect', { x:ml, y:Y(opts.band[1]), width:iw, height:Y(opts.band[0]) - Y(opts.band[1]), fill:'var(--ok)', opacity:.08 }));
-    const bt = svgEl('text', { x:W-mr, y:Y(opts.band[1]) - 4, 'text-anchor':'end', fill:'var(--ok)', 'font-size':9.5, 'font-family':'Instrument Sans, sans-serif' }); bt.textContent = opts.bandLabel || ''; s.append(bt); }
+    const bt = svgEl('text', { x:W-mr, y:Y(opts.band[1]) - 4, 'text-anchor':'end', fill:'var(--ok)', 'font-size':9.5, 'font-family':'Archivo, sans-serif' }); bt.textContent = opts.bandLabel || ''; s.append(bt); }
   for (let i = 0; i <= 4; i++){ const v = min + (max - min) * i / 4, y = Y(v);
     s.append(svgEl('line', { x1:ml, x2:W-mr, y1:y, y2:y, stroke:'var(--line)', 'stroke-width':1, 'stroke-dasharray': i ? '2 3' : '' }));
-    const t = svgEl('text', { x:ml-7, y:y+3.5, 'text-anchor':'end', fill:'var(--ink-3)', 'font-size':10, 'font-family':'Instrument Sans, sans-serif' }); t.textContent = Math.round(v * 10) / 10; s.append(t); }
+    const t = svgEl('text', { x:ml-7, y:y+3.5, 'text-anchor':'end', fill:'var(--ink-3)', 'font-size':10, 'font-family':'Archivo, sans-serif' }); t.textContent = Math.round(v * 10) / 10; s.append(t); }
   const d = data.map((p, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${Y(p.v).toFixed(1)}`).join(' ');
   s.append(svgEl('path', { d: d + ` L${X(data.length-1).toFixed(1)},${mt+ih} L${X(0).toFixed(1)},${mt+ih} Z`, fill:'var(--accent)', opacity:.1 }));
   s.append(svgEl('path', { d, fill:'none', stroke:'var(--accent)', 'stroke-width':2.2, 'stroke-linejoin':'round', 'stroke-linecap':'round' }));
@@ -902,10 +939,10 @@ function lineChart(card, data, opts){
     const hw = data.length > 1 ? iw / (data.length - 1) / 2 : iw / 2;
     const hit = svgEl('rect', { x:X(i)-hw, y:mt, width:hw*2, height:ih, fill:'transparent' });
     hit.addEventListener('pointerenter', ev => showTip(card, ev, `${p.l} · ${p.v}${opts.unit || ''}`)); hit.addEventListener('pointerleave', () => hideTip(card)); s.append(hit);
-    if (i % every === 0 || last){ const t = svgEl('text', { x:X(i), y:H-8, 'text-anchor': data.length === 1 ? 'middle' : i === 0 ? 'start' : last ? 'end' : 'middle', fill:'var(--ink-3)', 'font-size':10, 'font-family':'Instrument Sans, sans-serif' }); t.textContent = p.s || p.l; s.append(t); }
+    if (i % every === 0 || last){ const t = svgEl('text', { x:X(i), y:H-8, 'text-anchor': data.length === 1 ? 'middle' : i === 0 ? 'start' : last ? 'end' : 'middle', fill:'var(--ink-3)', 'font-size':10, 'font-family':'Archivo, sans-serif' }); t.textContent = p.s || p.l; s.append(t); }
   });
   const lp = data[data.length-1];
-  const lbl = svgEl('text', { x:X(data.length-1) - (data.length > 1 ? 0 : -8), y:Y(lp.v) - 11, 'text-anchor': data.length > 1 ? 'end' : 'start', fill:'var(--ink)', 'font-size':12, 'font-weight':600, 'font-family':'Instrument Sans, sans-serif' });
+  const lbl = svgEl('text', { x:X(data.length-1) - (data.length > 1 ? 0 : -8), y:Y(lp.v) - 11, 'text-anchor': data.length > 1 ? 'end' : 'start', fill:'var(--ink)', 'font-size':12, 'font-weight':600, 'font-family':'Archivo, sans-serif' });
   lbl.textContent = lp.v + (opts.unit || ''); s.append(lbl);
   card.append(s); addTip(card); return card;
 }
@@ -968,13 +1005,15 @@ function renderHist(){
   } else noData(c4, 'Renseigne une charge, une tenue ou des répétitions sur au moins deux séances terminées pour voir leur progression.');
   ch.append(c4);
 
-  const c7 = chartCard('Muscles travaillés · 7 jours', 'Séries renseignées par muscle : principal = 1, en soutien = ½. Plus la couleur est soutenue, plus le muscle a travaillé.');
+  const c7 = chartCard('Muscles travaillés · 7 jours', 'Séries renseignées par muscle : principal = 1, en soutien = ½. Quatre paliers de couleur, du moins au plus travaillé.');
   const W = {};
   last7.forEach(x => x.items.forEach(i => { const e = EBY[i.exId]; if (!e) return; const n = i.sets.filter(hasVal).length || (i.done ? 1 : 0); if (!n) return;
     const mu = musOf(e); mu.p.forEach(k => W[k] = (W[k] || 0) + n); mu.s.forEach(k => W[k] = (W[k] || 0) + n / 2); }));
   const wmax = Math.max(0, ...Object.values(W));
   if (wmax){ const nw = {}; for (const k in W) nw[k] = W[k] / wmax;
     const fig = el('div','mc-fig'); fig.style.maxWidth = '340px'; fig.innerHTML = bodyMap([], [], { weights:nw, aria:'Fréquence de travail par muscle sur 7 jours' }); c7.append(fig);
+    const inf = musInfo('Touche un muscle pour voir son volume sur 7 jours.'); fig.append(musScale(), inf);
+    pickable(fig, k => setMusInfo(inf, k, k && (W[k] ? fmtN(Math.round(W[k] * 10) / 10) + ' séries sur 7 jours.' : 'Pas travaillé ces 7 derniers jours.')));
     const top = Object.entries(W).sort((a, b) => b[1] - a[1]).slice(0, 6); const l = el('div','lg-l'); l.style.marginTop = '10px';
     top.forEach(([k, v]) => l.append(el('span','chip', musLabel(k) + ' · ' + fmtN(Math.round(v * 10) / 10)))); c7.append(l);
   } else noData(c7, 'Termine une séance pour voir les muscles travaillés cette semaine.');

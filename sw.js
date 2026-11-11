@@ -2,12 +2,13 @@
    - Fichiers de l'app (HTML, CSS, JS, icônes, manifest) : réseau d'abord, en contournant le cache HTTP,
      pour que chaque ouverture avec du réseau récupère la dernière version publiée. Sans réseau
      (ou réseau trop lent), on sert la copie en cache.
-   - Polices Google : cache d'abord (leurs fichiers ne changent jamais à URL constante).
+   - Polices : embarquées dans le dépôt (dossier fonts/), donc servies comme les autres fichiers, y compris hors ligne.
    Changer VERSION à chaque publication force aussi le remplacement du cache chez tout le monde. */
-const VERSION = 'v9';
+const VERSION = 'v10';
 const CACHE = 'sport-' + VERSION;
 const CORE = ['./', './index.html', './css/app.css', './js/catalog.js', './js/app.js', './js/timer.js', './js/backup.js', './js/sync.js', './js/main.js',
-  './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
+  './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png',
+  './fonts/archivo.woff2', './fonts/instrument-sans.woff2'];
 const NET_TIMEOUT = 4000;
 
 self.addEventListener('install', e => {
@@ -37,9 +38,6 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   if (req.mode === 'navigate'){ e.respondWith(networkFirst(req, './index.html')); return; }
   if (url.origin === location.origin){ e.respondWith(networkFirst(req, req)); return; }
-  if (/fonts\.(googleapis|gstatic)\.com$/.test(url.hostname)){
-    e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(r => { if (r.ok || r.type === 'opaque'){ const cp = r.clone(); caches.open(CACHE).then(c => c.put(req, cp)); } return r; })));
-  }
 });
 
 /* Notification de fin de repos : la toucher ramène l'app au premier plan. */
